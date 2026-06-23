@@ -50,7 +50,19 @@ analyzer" state rather than an error.
 
 ## Options
 
-All optional:
+You can configure the card two ways: **the visual editor** (recommended) or
+YAML.
+
+### Visual editor
+
+After adding the card, click it and choose **Edit** → the visual editor shows
+fields for the title, report path, refresh interval, and accent color, with
+HA's native inputs. New cards added from the picker start with working
+defaults.
+
+### YAML
+
+All options are optional:
 
 ```yaml
 type: custom:system-incident-report-card
@@ -67,16 +79,16 @@ The card cache-busts each fetch, so the daily rewrite is always picked up.
 ```json
 {
   "generated": "2026-06-23T05:49:28Z",
-  "summary": { "critical": 0, "warning": 2, "minor": 2 },
+  "summary": { "critical": 1, "warning": 0, "minor": 1 },
   "incidents": [
     {
-      "id": "mqtt-keepalive",
-      "severity": "warning",
-      "title": "MQTT connection instability",
-      "detail": "Matched 48x in Zigbee2MQTT over the scanned window.",
-      "recommendation": "Check Mosquitto health ...",
-      "count": 48,
-      "sources": ["Zigbee2MQTT"]
+      "id": "example-rule-id",
+      "severity": "critical",
+      "title": "Short incident title",
+      "detail": "Matched 3x in <source name> over the scanned window.",
+      "recommendation": "What to do about it.",
+      "count": 3,
+      "sources": ["<source name>"]
     }
   ]
 }
@@ -93,4 +105,4 @@ history, so issues older than the buffer may roll off before a daily run. See
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
