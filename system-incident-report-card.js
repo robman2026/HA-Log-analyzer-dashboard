@@ -37,6 +37,72 @@ class SystemIncidentReportCard extends LitElement {
     _loading: { state: true },
   };
 
+  // Default config used by the card picker when the card is first added.
+  static getStubConfig() {
+    return {
+      title: "System health",
+      source: "/local/incident-report.json",
+      refresh: 30,
+      gold: "#E5B53A",
+    };
+  }
+
+  // Built-in visual editor (ha-form). HA renders native, themed inputs from
+  // this schema — no custom editor element to maintain.
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "title", selector: { text: {} } },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "source", selector: { text: {} } },
+            {
+              name: "refresh",
+              selector: {
+                number: {
+                  min: 0,
+                  max: 1440,
+                  step: 1,
+                  unit_of_measurement: "min",
+                  mode: "box",
+                },
+              },
+            },
+          ],
+        },
+        { name: "gold", selector: { text: { type: "color" } } },
+      ],
+      computeLabel: (schema) => {
+        switch (schema.name) {
+          case "title":
+            return "Card title";
+          case "source":
+            return "Report JSON path";
+          case "refresh":
+            return "Refresh interval";
+          case "gold":
+            return "Accent color (gold)";
+          default:
+            return undefined;
+        }
+      },
+      computeHelper: (schema) => {
+        switch (schema.name) {
+          case "source":
+            return "Path the analyzer writes, e.g. /local/incident-report.json";
+          case "refresh":
+            return "How often the card re-fetches the report (0 = only on load)";
+          case "gold":
+            return "Hex color for accents; defaults to Heimdall amber #E5B53A";
+          default:
+            return undefined;
+        }
+      },
+    };
+  }
+
   setConfig(config) {
     this._config = {
       title: config.title ?? "System health",
@@ -456,10 +522,13 @@ window.customCards.push({
   name: "System Incident Report Card",
   description:
     "Heimdall-styled daily incident report rendered from the Node-RED analyzer's JSON.",
+  preview: true,
+  documentationURL:
+    "https://github.com/robman2026/ha-incident-report-card",
 });
 
 console.info(
-  "%c SYSTEM-INCIDENT-REPORT-CARD %c v2.0.0 (Heimdall) ",
+  "%c SYSTEM-INCIDENT-REPORT-CARD %c v2.1.0 (Heimdall + UI editor) ",
   "color:#111114;background:#E5B53A;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px;",
   "color:#E5B53A;background:#111114;border-radius:0 3px 3px 0;padding:2px 4px;"
 );
