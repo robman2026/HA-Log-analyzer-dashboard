@@ -1,6 +1,6 @@
 # System Incident Report Card
 
-A self-updating, Heimdall-styled Home Assistant Lovelace card that displays a
+A self-updating, Home Assistant Lovelace card that displays a
 daily, severity-weighted incident report built from your Home Assistant and
 add-on logs.
 
@@ -93,4 +93,4 @@ history, so issues older than the buffer may roll off before a daily run. See
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT
