@@ -32,17 +32,13 @@ class SystemIncidentReportCard extends LitElement {
   static properties = {
     hass: { attribute: false },
     _config: { state: true },
-    _report: { state: true },
-    _error: { state: true },
-    _loading: { state: true },
   };
 
   // Default config used by the card picker when the card is first added.
   static getStubConfig() {
     return {
       title: "System health",
-      source: "/local/incident-report.json",
-      refresh: 30,
+      entity: "sensor.incident_report",
       gold: "#E5B53A",
     };
   }
@@ -54,23 +50,8 @@ class SystemIncidentReportCard extends LitElement {
       schema: [
         { name: "title", selector: { text: {} } },
         {
-          type: "grid",
-          name: "",
-          schema: [
-            { name: "source", selector: { text: {} } },
-            {
-              name: "refresh",
-              selector: {
-                number: {
-                  min: 0,
-                  max: 1440,
-                  step: 1,
-                  unit_of_measurement: "min",
-                  mode: "box",
-                },
-              },
-            },
-          ],
+          name: "entity",
+          selector: { entity: { domain: "sensor" } },
         },
         { name: "gold", selector: { text: { type: "color" } } },
       ],
@@ -78,10 +59,8 @@ class SystemIncidentReportCard extends LitElement {
         switch (schema.name) {
           case "title":
             return "Card title";
-          case "source":
-            return "Report JSON path";
-          case "refresh":
-            return "Refresh interval";
+          case "entity":
+            return "Incident report sensor";
           case "gold":
             return "Accent color (gold)";
           default:
@@ -90,10 +69,8 @@ class SystemIncidentReportCard extends LitElement {
       },
       computeHelper: (schema) => {
         switch (schema.name) {
-          case "source":
-            return "Path the analyzer writes, e.g. /local/incident-report.json";
-          case "refresh":
-            return "How often the card re-fetches the report (0 = only on load)";
+          case "entity":
+            return "Sensor the analyzer publishes to (default sensor.incident_report)";
           case "gold":
             return "Hex color for accents; defaults to Heimdall amber #E5B53A";
           default:
@@ -106,51 +83,37 @@ class SystemIncidentReportCard extends LitElement {
   setConfig(config) {
     this._config = {
       title: config.title ?? "System health",
-      source: config.source ?? "/local/incident-report.json",
-      refresh: Number(config.refresh ?? 30),
+      entity: config.entity ?? "sensor.incident_report",
       gold: config.gold ?? "#E5B53A",
     };
-    this._report = null;
-    this._error = null;
-    this._loading = true;
   }
 
   getCardSize() {
-    return 3 + (this._report?.incidents?.length ?? 1);
+    const st = this.hass?.states?.[this._config?.entity];
+    return 3 + (st?.attributes?.incidents?.length ?? 1);
   }
 
-  connectedCallback() {
-    super.connectedCallback();
-    this._load();
-    if (this._config?.refresh > 0) {
-      this._timer = setInterval(
-        () => this._load(),
-        this._config.refresh * 60000
-      );
+  // Pull the report straight from the entity's state + attributes.
+  // Returns { report, missing }.
+  _readEntity() {
+    const id = this._config?.entity;
+    const st = id ? this.hass?.states?.[id] : null;
+    if (!st || st.state === "unavailable" || st.state === "unknown") {
+      return { report: null, missing: true };
     }
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._timer) clearInterval(this._timer);
-  }
-
-  async _load() {
-    try {
-      const url =
-        this._config.source +
-        (this._config.source.includes("?") ? "&" : "?") +
-        "_=" +
-        Date.now();
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      this._report = await res.json();
-      this._error = null;
-    } catch (e) {
-      this._error = e.message || String(e);
-    } finally {
-      this._loading = false;
-    }
+    const a = st.attributes || {};
+    return {
+      report: {
+        generated: a.generated,
+        summary: a.summary ?? {
+          critical: a.critical ?? 0,
+          warning: a.warning ?? 0,
+          minor: a.minor ?? 0,
+        },
+        incidents: a.incidents ?? [],
+      },
+      missing: false,
+    };
   }
 
   _fmtTime(iso) {
@@ -169,7 +132,7 @@ class SystemIncidentReportCard extends LitElement {
 
   render() {
     if (!this._config) return html``;
-    const r = this._report;
+    const { report: r, missing } = this._readEntity();
     const counts = r?.summary ?? { critical: 0, warning: 0, minor: 0 };
     const incidents = (r?.incidents ?? [])
       .slice()
@@ -187,22 +150,20 @@ class SystemIncidentReportCard extends LitElement {
         <div class="head">
           <div class="head__title">${this._config.title}</div>
           <div class="head__meta">
-            ${this._loading
-              ? "Loading…"
-              : this._error
-              ? "Report unavailable"
+            ${missing
+              ? "Waiting for data"
               : "Updated " + this._fmtTime(r?.generated)}
           </div>
         </div>
 
-        ${this._error
+        ${missing
           ? html`<div class="alert alert--ok">
-              <ha-icon icon="mdi:file-alert-outline"></ha-icon>
+              <ha-icon icon="mdi:timer-sand"></ha-icon>
               <div class="alert__body">
-                <div class="alert__title">No report file yet</div>
+                <div class="alert__title">No report yet</div>
                 <div class="alert__sub">
-                  Waiting for the analyzer to write ${this._config.source}.
-                  It runs daily at 06:00.
+                  Waiting for <code>${this._config.entity}</code> to report.
+                  The analyzer runs daily at 06:00 (or trigger it manually).
                 </div>
               </div>
             </div>`
@@ -528,7 +489,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c SYSTEM-INCIDENT-REPORT-CARD %c v2.1.0 (Heimdall + UI editor) ",
+  "%c SYSTEM-INCIDENT-REPORT-CARD %c v3.0.0 (Heimdall + MQTT sensor) ",
   "color:#111114;background:#E5B53A;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px;",
   "color:#E5B53A;background:#111114;border-radius:0 3px 3px 0;padding:2px 4px;"
 );
